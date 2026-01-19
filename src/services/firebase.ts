@@ -14,13 +14,12 @@ import {
 
 // Configuración real de Koin App
 const firebaseConfig = {
-  apiKey: "AIzaSyCFlH1OxG5n9PDIcxNvOgRx50faHp6LV2w",
-  authDomain: "koinappco.firebaseapp.com",
-  projectId: "koinappco",
-  storageBucket: "koinappco.firebasestorage.app",
-  messagingSenderId: "1002235430671",
-  appId: "1:1002235430671:web:8e29930902a9514f13e07a",
-  measurementId: "G-J8D277179T"
+  apiKey: "AIzaSyCeHv-wdckGTNgRPgvitMNQeUYXATz5kBw",
+  authDomain: "koin-pro.firebaseapp.com",
+  projectId: "koin-pro",
+  storageBucket: "koin-pro.firebasestorage.app",
+  messagingSenderId: "358296539087",
+  appId: "1:358296539087:web:a6e3b1847ce2d64ad0ccba"
 };
 
 // Initialize App
