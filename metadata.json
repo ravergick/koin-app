@@ -1,0 +1,5 @@
+{
+  "name": "Koin",
+  "description": "Una aplicación de gestión financiera personal con estética iOS, enfocada en el seguimiento de cupos de tarjetas, gastos y cuentas por cobrar.",
+  "requestFramePermissions": []
+}
