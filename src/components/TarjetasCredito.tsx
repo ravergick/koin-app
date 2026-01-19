@@ -314,11 +314,7 @@ export function TarjetasCredito({ privacyMode }: { privacyMode: boolean }) {
     // Assuming Onboarding handles its own UI. 
     // If Onboarding is strictly strictly separate file:
     if (!isSetup) {
-        // We need to render Onboarding. 
-        // I'll need to make sure Onboarding imports are correct first. 
-        // For now, I'll return a placeholder or try to use the imported component.
-        return <div className="p-4"><p>Configuración requerida (Onboarding incomplete)</p></div>;
-        // Note: I will need to fix Onboarding.tsx imports too!
+        return <Onboarding onComplete={handleOnboardingComplete} />;
     }
 
     const PersonalCats = (Object.values(categories) as CreditCardCategory[]).filter(c => c.type === 'personal');
