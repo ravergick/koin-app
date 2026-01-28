@@ -30,6 +30,11 @@ import { Transaction, Category, DebtItem, ReceivableItem } from "./types";
 // Components
 import { AiAdvisor } from "./components/AiAdvisor";
 import { TarjetasCredito } from "./components/TarjetasCredito";
+import { CurrencyInput } from "./components/CurrencyInput";
+import { CompactHeader } from "./components/CompactHeader";
+import { DonutChart } from "./components/DonutChart";
+import { FlowChip } from "./components/FlowChip";
+import { MainWidget } from "./components/MainWidget";
 
 // Services
 import {
@@ -59,132 +64,9 @@ const DEFAULT_CATEGORIES: Omit<Category, 'id'>[] = [
 
 // --- HELPER COMPONENTS ---
 
-const CurrencyInput = ({ value, onChange, placeholder, name, className, required = false }: any) => {
-    const [displayValue, setDisplayValue] = useState("");
-    useEffect(() => { if (value !== undefined && value !== null) setDisplayValue(formatNumber(value.toString())); }, [value]);
-    const formatNumber = (val: string) => val.replace(/\D/g, "").replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-    const handleChange = (e: any) => {
-        const raw = e.target.value.replace(/\./g, "");
-        if (!/^\d*$/.test(raw)) return;
-        setDisplayValue(formatNumber(raw));
-        if (onChange) onChange(raw);
-    };
-    return <input type="text" inputMode="numeric" name={name} value={displayValue} onChange={handleChange} placeholder={placeholder} className={className} required={required} autoComplete="off" />;
-};
 
 const parseCurrency = (val: string | null) => val ? parseFloat(val.toString().replace(/\./g, "")) : 0;
 
-const CompactHeader = ({ currentDate, setDate, privacyMode, setPrivacyMode }: any) => {
-    const label = new Intl.DateTimeFormat('es-ES', { month: 'long', year: 'numeric' }).format(currentDate);
-    const adjust = (n: number) => {
-        const d = new Date(currentDate);
-        d.setMonth(d.getMonth() + n);
-        setDate(d);
-    };
-
-    return (
-        <header className="flex justify-between items-center px-4 pt-safe h-[48px]">
-            <div className="flex items-center bg-gray-200/40 dark:bg-white/5 p-1 rounded-full border border-gray-300/10 backdrop-blur-md">
-                <button onClick={() => adjust(-1)} className="w-7 h-7 flex items-center justify-center text-gray-400 active:text-gray-900 dark:active:text-white transition-colors"><ChevronLeft size={14} strokeWidth={3} /></button>
-                <span className="text-[11px] font-bold text-gray-700 dark:text-gray-300 px-3 min-w-[90px] text-center capitalize tracking-tight">{label}</span>
-                <button onClick={() => adjust(1)} className="w-7 h-7 flex items-center justify-center text-gray-400 active:text-gray-900 dark:active:text-white transition-colors"><ChevronRight size={14} strokeWidth={3} /></button>
-            </div>
-
-            <button
-                onClick={() => setPrivacyMode(!privacyMode)}
-                className={`p-2 rounded-full transition-all active:scale-90 ${privacyMode ? 'bg-[#007AFF] text-white shadow-lg shadow-blue-500/20' : 'bg-gray-200/40 dark:bg-white/5 text-gray-500'}`}
-            >
-                {privacyMode ? <EyeOff size={16} /> : <Eye size={16} />}
-            </button>
-        </header>
-    );
-};
-
-const DonutChart = ({ data }: { data: { label: string, value: number, color: string }[] }) => {
-    const total = data.reduce((acc, curr) => acc + curr.value, 0);
-    if (total === 0) return (
-        <div className="w-40 h-40 mx-auto mb-4 rounded-full border-4 border-dashed border-gray-200 dark:border-white/10 flex items-center justify-center">
-            <span className="text-gray-400 text-[10px] font-bold">Sin datos</span>
-        </div>
-    );
-
-    let currentAngle = 0;
-    const radius = 35;
-    const center = 50;
-    const strokeWidth = 12;
-    const circumference = 2 * Math.PI * radius;
-
-    return (
-        <div className="relative w-44 h-44 mx-auto mb-4 animate-fade-in">
-            <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
-                {data.map((segment, i) => {
-                    if (segment.value === 0) return null;
-                    const percentage = (segment.value / total) * 100;
-                    const dashArray = (percentage / 100) * circumference;
-                    const dashOffset = (currentAngle / 100) * circumference;
-                    const result = (
-                        <circle
-                            key={i}
-                            cx={center}
-                            cy={center}
-                            r={radius}
-                            fill="transparent"
-                            stroke={segment.color}
-                            strokeWidth={strokeWidth}
-                            strokeDasharray={`${dashArray} ${circumference}`}
-                            strokeDashoffset={-dashOffset}
-                            strokeLinecap="round"
-                            className="transition-all duration-1000 ease-out"
-                        />
-                    );
-                    currentAngle += percentage;
-                    return result;
-                })}
-            </svg>
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-[10px] font-bold text-gray-400 tracking-tight">Gastado</span>
-                <span className="text-[20px] font-black text-gray-900 dark:text-white">${total.toLocaleString()}</span>
-            </div>
-        </div>
-    );
-};
-
-const FlowChip = ({ title, value, type, privacyMode }: any) => {
-    const isIncome = type === 'income';
-    const color = isIncome ? 'text-emerald-500' : 'text-rose-500';
-    return (
-        <div className="bg-white dark:bg-[#1C1C1E] rounded-[22px] px-3 py-3.5 flex-1 flex flex-col border border-gray-100 dark:border-white/5 shadow-sm">
-            <span className="text-[10px] font-bold text-gray-400 mb-0.5 tracking-tight">{title}</span>
-            <span className={`text-[18px] font-black tracking-tight ${color} ${privacyMode ? 'blur-md' : ''}`}>
-                ${value.toLocaleString()}
-            </span>
-        </div>
-    );
-};
-
-const MainWidget = ({ title, value, theme, icon: Icon, onClick, privacyMode }: any) => {
-    const CompIcon = Icon;
-    const isRed = theme === 'red';
-    const colorClass = isRed ? 'text-rose-500' : 'text-emerald-500';
-    const bgClass = isRed ? 'bg-rose-500/10' : 'bg-emerald-500/10';
-
-    return (
-        <button
-            onClick={onClick}
-            className="bg-white dark:bg-[#1C1C1E] p-4 rounded-[26px] active:scale-[0.97] transition-all flex flex-col justify-between h-[96px] text-left border border-gray-100 dark:border-white/5 shadow-sm"
-        >
-            <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${bgClass}`}>
-                <CompIcon size={18} className={colorClass} strokeWidth={2.5} />
-            </div>
-            <div>
-                <p className="text-[10px] font-bold text-gray-400 mb-0.5 tracking-tight">{title}</p>
-                <h3 className={`text-[17px] font-black text-gray-900 dark:text-white leading-none tracking-tight ${privacyMode ? 'blur-sm opacity-20' : ''}`}>
-                    ${value.toLocaleString()}
-                </h3>
-            </div>
-        </button>
-    );
-};
 
 // --- APP ---
 
