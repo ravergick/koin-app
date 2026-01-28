@@ -58,3 +58,16 @@ export interface CreditCardTransaction {
 export interface ModalState {
     type: 'add_cat' | 'add_cat_external' | 'action_expense' | 'action_debt' | 'enter_amount_expense' | 'enter_amount_debt' | 'settings' | 'manage_budgets' | 'settle_specific_debt' | 'confirm_reset' | null;
 }
+
+export interface Contact {
+    id: string;
+    name: string;
+    avatar?: string; // Emoji character or URL
+}
+
+export interface SharedExpenseDetails {
+    isShared: boolean;
+    sharedWith: string[]; // IDs of contacts
+    amountPerPerson: number;
+    yourShare: number;
+}

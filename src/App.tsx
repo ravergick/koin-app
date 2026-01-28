@@ -35,6 +35,11 @@ import { CompactHeader } from "./components/CompactHeader";
 import { DonutChart } from "./components/DonutChart";
 import { FlowChip } from "./components/FlowChip";
 import { MainWidget } from "./components/MainWidget";
+import { UnifiedTransactionForm } from "./components/UnifiedTransactionForm";
+import { TransactionTypeSelector } from "./components/TransactionTypeSelector";
+import { Dashboard } from "./components/dashboard/Dashboard";
+import { IncomeDetailView } from "./components/dashboard/IncomeDetailView";
+import { ExpenseDetailView } from "./components/dashboard/ExpenseDetailView";
 
 // Services
 import {
@@ -45,22 +50,17 @@ import {
     auth,
     onAuthStateChanged,
     loginWithGoogle,
-    User
+    User,
+    db
 } from "./services/firebase";
+import { cleanupDuplicateCategories } from "./utils/cleanupCategories";
 
 // --- CONSTANTES ---
 const ICON_MAP: Record<string, any> = {
     Home, ShoppingBag, PiggyBank, CreditCard, TrendingUp, Landmark, ShieldCheck, HandCoins, Target
 };
 
-const DEFAULT_CATEGORIES: Omit<Category, 'id'>[] = [
-    { nombre: "Vivienda", color: "#6366F1", iconKey: "Home", tipo: "necesidad" },
-    { nombre: "Comida", color: "#10B981", iconKey: "ShoppingBag", tipo: "necesidad" },
-    { nombre: "Ahorro", color: "#14B8A6", iconKey: "PiggyBank", tipo: "ahorro" },
-    { nombre: "Inversiones", color: "#8B5CF6", iconKey: "TrendingUp", tipo: "inversion" },
-    { nombre: "Transporte", color: "#F59E0B", iconKey: "CreditCard", tipo: "necesidad" },
-    { nombre: "Ocio", color: "#EC4899", iconKey: "Target", tipo: "deseo" },
-];
+const DEFAULT_CATEGORIES: Omit<Category, 'id'>[] = [];
 
 // --- HELPER COMPONENTS ---
 
@@ -73,9 +73,12 @@ const parseCurrency = (val: string | null) => val ? parseFloat(val.toString().re
 export default function App() {
     const [user, setUser] = useState<User | null>(null);
     const [vistaActual, setVistaActual] = useState("overview");
-    const [drillDownView, setDrillDownView] = useState<'gastos' | 'ahorro' | 'inversion' | 'deudas' | 'cobros' | 'patrimonio' | null>(null);
+    const [drillDownView, setDrillDownView] = useState<'gastos' | 'ingresos' | 'ahorro' | 'inversion' | 'deudas' | 'cobros' | 'patrimonio' | null>(null);
     const [privacyMode, setPrivacyMode] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // Transaction Flow State
+    const [selectedTxType, setSelectedTxType] = useState<'gasto' | 'ingreso' | 'ahorro' | 'inversion' | null>(null);
 
     const [transacciones, setTransacciones] = useState<Transaction[]>([]);
     const [categorias, setCategorias] = useState<Category[]>([]);
@@ -95,31 +98,77 @@ export default function App() {
     }, []);
 
     // Listen to Data ONLY when user is logged in
+    const [loadingFlags, setLoadingFlags] = useState({ tx: false, cat: false, debts: false, rec: false });
+
+    useEffect(() => {
+        if (loadingFlags.tx && loadingFlags.cat && loadingFlags.debts && loadingFlags.rec) {
+            setIsLoading(false);
+        }
+    }, [loadingFlags]);
+
     useEffect(() => {
         if (!user) return;
         setIsLoading(true);
+        setLoadingFlags({ tx: false, cat: false, debts: false, rec: false });
 
-        const unsubscribeTx = subscribeToCollection("transactions", (data) => setTransacciones(data as Transaction[]));
-        const unsubscribeCat = subscribeToCollection("categories", (data) => {
-            if (data.length === 0) DEFAULT_CATEGORIES.forEach(c => addData("categories", c));
-            else setCategorias(data as Category[]);
+        const unsubscribeTx = subscribeToCollection("transactions", (data) => {
+            setTransacciones(data as Transaction[]);
+            setLoadingFlags(prev => ({ ...prev, tx: true }));
         });
-        const unsubscribeDebts = subscribeToCollection("debts", (data) => setDebts(data as DebtItem[]));
+
+        const unsubscribeCat = subscribeToCollection("categories", (data) => {
+            setCategorias(data as Category[]);
+            // Initialize defaults if needed (currently DEFAULT_CATEGORIES is empty, but kept logic safe)
+            if (data.length === 0 && DEFAULT_CATEGORIES.length > 0) {
+                DEFAULT_CATEGORIES.forEach(c => addData("categories", c));
+            }
+            setLoadingFlags(prev => ({ ...prev, cat: true }));
+        });
+
+        const unsubscribeDebts = subscribeToCollection("debts", (data) => {
+            setDebts(data as DebtItem[]);
+            setLoadingFlags(prev => ({ ...prev, debts: true }));
+        });
+
         const unsubscribeRec = subscribeToCollection("receivables", (data) => {
             setReceivables(data as ReceivableItem[]);
-            setIsLoading(false);
+            setLoadingFlags(prev => ({ ...prev, rec: true }));
         });
-        return () => { unsubscribeTx(); unsubscribeCat(); unsubscribeDebts(); unsubscribeRec(); };
+
+        // Failsafe: Force stop loading after 4 seconds (in case a collection is empty or slow)
+        const safetyTimer = setTimeout(() => {
+            setIsLoading(false);
+        }, 4000);
+
+        return () => {
+            unsubscribeTx(); unsubscribeCat(); unsubscribeDebts(); unsubscribeRec();
+            clearTimeout(safetyTimer);
+        };
     }, [user]);
 
     const txDelPeriodo = useMemo(() => transacciones.filter(t => {
         const d = new Date(t.fecha + 'T00:00:00');
+        // Filter out system logs like credit card payments or debts logs if they confuse the main cashflow
+        // But for Expenses, we want everything except 'system_credit_debt_log' unless we are carefully tracking
+        if (t.tipo === 'system_credit_debt_log') return false;
         return d.getMonth() === currentMonth.getMonth() && d.getFullYear() === currentMonth.getFullYear();
     }), [transacciones, currentMonth]);
 
     const totalDeuda = debts.reduce((a, b) => a + b.currentBalance, 0);
+
+    // Credit Cards Balance Sum (Mock or Real)
+    // We can sum the "used" amount from creditCards categories if we had it, or calculate from TXs?
+    // For now, let's assume we don't have a direct "Credit Card Balance" field in user.categories
+    // But we might want to sum standard debts + card debts.
+    // Let's create a helper to sum card balances if we have that data, otherwise 0.
+    const totalTarjetas = 0; // For now. Later we can sum real card balances if available.
+
     const totalCobros = receivables.filter(r => r.status !== 'paid').reduce((a, b) => a + b.amount, 0);
+
+    // Cashflow Calculation
+    const totalIngresos = txDelPeriodo.filter(t => t.tipo === "ingreso").reduce((a, b) => a + b.monto, 0);
     const totalGastos = txDelPeriodo.filter(t => t.tipo === "gasto").reduce((a, b) => a + b.monto, 0);
+    const balanceMensual = totalIngresos - totalGastos;
 
     const totalAhorro = txDelPeriodo.filter(t => {
         const c = categorias.find(cat => cat.id === t.categoriaId);
@@ -132,21 +181,26 @@ export default function App() {
     }).reduce((a, b) => a + b.monto, 0);
 
     const totalActivos = totalAhorro + totalInversion + totalCobros;
-    const patrimonioNeto = totalActivos - totalDeuda;
+    const patrimonioNeto = totalActivos - totalDeuda; // Simplified
 
+    // Stats for Chart
     const statsCategorias = useMemo(() => categorias.map(cat => ({
         ...cat,
-        gastado: txDelPeriodo.filter(t => t.categoriaId === cat.id && (t.tipo === "gasto" || t.tipo === "ahorro" || t.tipo === "inversion")).reduce((a, b) => a + b.monto, 0),
-        presupuesto: cat.presupuesto || 0,
-        Icon: ICON_MAP[cat.iconKey] || MoreHorizontal,
-        grupo: cat.tipo === 'ahorro' ? 'ahorro' : cat.tipo === 'inversion' ? 'inversion' : 'gasto'
+        gastado: txDelPeriodo.filter(t => t.categoriaId === cat.id && t.tipo === 'gasto').reduce((a, b) => a + b.monto, 0),
+        grupo: cat.tipo
     })), [categorias, txDelPeriodo]);
 
-    const distributionData = useMemo(() => [
-        { label: 'Necesidades', value: statsCategorias.filter(c => c.tipo === 'necesidad').reduce((a, b) => a + b.gastado, 0), color: '#6366F1' },
-        { label: 'Deseos', value: statsCategorias.filter(c => c.tipo === 'deseo').reduce((a, b) => a + b.gastado, 0), color: '#EC4899' },
-        { label: 'Ahorro e Inv.', value: statsCategorias.filter(c => c.tipo === 'ahorro' || c.tipo === 'inversion').reduce((a, b) => a + b.gastado, 0), color: '#10B981' },
-    ], [statsCategorias]);
+    const chartData = useMemo(() => {
+        // Filter categories with spending > 0
+        const activeCategories = statsCategorias.filter(c => c.gastado > 0 && c.grupo !== 'ahorro' && c.grupo !== 'inversion'); // Exclude savings/investments from Expense Chart if they are treated separately
+
+        return activeCategories.map(c => ({
+            name: c.nombre,
+            value: c.gastado,
+            color: c.color
+        })).sort((a, b) => b.value - a.value);
+    }, [statsCategorias]);
+
 
     const handleUpdateBudget = async (id: string, monto: number) => {
         await updateData("categories", id, { presupuesto: monto });
@@ -162,7 +216,7 @@ export default function App() {
                 <div className="w-24 h-24 mb-8 bg-white dark:bg-[#1C1C1E] rounded-[2.5rem] shadow-xl flex items-center justify-center text-[#007AFF]">
                     <ShieldCheck size={48} strokeWidth={1.5} />
                 </div>
-                <h1 className="text-4xl font-extrabold mb-2 text-gray-900 dark:text-white tracking-tighter">Koin</h1>
+                <h1 className="text-4xl font-extrabold mb-2 text-gray-900 dark:text-white tracking-tighter" onDoubleClick={cleanupDuplicateCategories}>Koin</h1>
                 <p className="text-gray-500 mb-10 max-w-xs text-sm font-semibold">Tus finanzas, simplificadas.</p>
                 <button
                     onClick={loginWithGoogle}
@@ -182,51 +236,64 @@ export default function App() {
             <main className="flex-1 flex flex-col max-w-[480px] mx-auto w-full relative overflow-hidden">
 
                 {vistaActual === "overview" && !drillDownView && (
-                    <div className="flex-1 flex flex-col justify-between h-full animate-fade-in px-5 py-4 overflow-hidden no-scrollbar pb-[114px]">
+                    <div className="flex-1 flex flex-col h-full animate-fade-in px-5 pt-14 pb-4 overflow-hidden">
 
-                        <div className="flex flex-col">
+                        {/* HEADER */}
+                        <div className="mb-4">
                             <CompactHeader currentDate={currentMonth} setDate={setCurrentMonth} privacyMode={privacyMode} setPrivacyMode={setPrivacyMode} />
-
-                            <div className="text-center flex flex-col items-center justify-center py-4">
-                                <span className="text-[11px] font-bold text-gray-400 mb-1 tracking-tight opacity-80">Patrimonio neto actual</span>
-                                <h1 className={`text-[48px] font-bold tracking-tighter leading-none transition-all duration-700 ${privacyMode ? 'blur-2xl opacity-10' : patrimonioNeto >= 0 ? 'text-gray-900 dark:text-white' : 'text-rose-500'}`}>
-                                    {patrimonioNeto < 0 ? '-' : ''}${Math.abs(patrimonioNeto).toLocaleString()}
-                                </h1>
-
-                                <div className="flex gap-2 w-full mt-6 px-1">
-                                    <FlowChip title="Mi capital" value={totalActivos} type="income" privacyMode={privacyMode} />
-                                    <FlowChip title="Mis obligaciones" value={totalDeuda} type="expense" privacyMode={privacyMode} />
-                                </div>
-                            </div>
                         </div>
 
-                        <div className="space-y-3">
-                            <div className="flex items-center gap-2 px-1">
-                                <h2 className="text-[11px] font-bold text-emerald-500 tracking-tight">Capital</h2>
-                                <div className="flex-1 h-[1px] bg-emerald-500/10"></div>
-                            </div>
-                            <div className="grid grid-cols-2 gap-3">
-                                <MainWidget title="Ahorro e inversión" value={totalAhorro + totalInversion} theme="green" icon={PiggyBank} onClick={() => setDrillDownView('ahorro')} privacyMode={privacyMode} />
-                                <MainWidget title="Cuentas por cobrar" value={totalCobros} theme="green" icon={HandCoins} onClick={() => setDrillDownView('cobros')} privacyMode={privacyMode} />
-                            </div>
+                        {/* DASHBOARD SCROLLABLE AREA */}
+                        <div className="flex-1 overflow-y-auto no-scrollbar pb-32">
+                            <Dashboard
+                                monthName={currentMonth.toLocaleString('es-ES', { month: 'long' })}
+                                income={totalIngresos}
+                                expenses={totalGastos}
+                                balance={balanceMensual}
+                                distributionData={chartData}
+                                savings={totalAhorro}
+                                investments={totalInversion}
+                                receivables={totalCobros}
+                                debts={totalDeuda}
+                                creditCardsBalance={totalTarjetas}
+                                onNavigate={(view) => {
+                                    if (view === 'koin') setVistaActual('koin');
+                                    else setDrillDownView(view as any);
+                                }}
+                                privacyMode={privacyMode}
+                                transactions={txDelPeriodo}
+                                categories={categorias}
+                                debtItems={debts}
+                            />
                         </div>
-
-                        <div className="space-y-3">
-                            <div className="flex items-center gap-2 px-1">
-                                <h2 className="text-[11px] font-bold text-rose-500 tracking-tight">Obligaciones</h2>
-                                <div className="flex-1 h-[1px] bg-rose-500/10"></div>
-                            </div>
-                            <div className="grid grid-cols-2 gap-3">
-                                <MainWidget title="Mis deudas" value={totalDeuda} theme="red" icon={Landmark} onClick={() => setDrillDownView('deudas')} privacyMode={privacyMode} />
-                                <MainWidget title="Tarjetas de Crédito" value={0} theme="red" icon={CreditCard} onClick={() => setVistaActual('koin')} privacyMode={privacyMode} />
-                            </div>
-                        </div>
-
                     </div>
                 )}
 
                 {/* Módulo Koin (Tarjetas de Credito) */}
                 {vistaActual === "koin" && <TarjetasCredito privacyMode={privacyMode} />}
+
+                {/* Income Detail View */}
+                {vistaActual === "overview" && drillDownView === 'ingresos' && (
+                    <IncomeDetailView
+                        transactions={txDelPeriodo.filter(t => t.tipo === 'ingreso')}
+                        categories={categorias}
+                        totalIncome={totalIngresos}
+                        onBack={() => setDrillDownView(null)}
+                        monthName={currentMonth.toLocaleString('es-ES', { month: 'long' }).toUpperCase()}
+                    />
+                )}
+
+                {/* Expense Detail View */}
+                {vistaActual === "overview" && drillDownView === 'gastos' && (
+                    <ExpenseDetailView
+                        transactions={txDelPeriodo.filter(t => t.tipo === 'gasto')}
+                        categories={categorias}
+                        totalExpenses={totalGastos}
+                        chartData={chartData}
+                        onBack={() => setDrillDownView(null)}
+                        monthName={currentMonth.toLocaleString('es-ES', { month: 'long' }).toUpperCase()}
+                    />
+                )}
 
                 {/* Planificación (Budgets) Compacto */}
                 {vistaActual === "budgets" && (
@@ -366,38 +433,36 @@ export default function App() {
                 {/* Registro de Movimiento */}
                 {vistaActual === "transactions" && (
                     <div className="flex-1 flex flex-col h-full animate-fade-in px-6 py-4 overflow-y-auto pb-44 no-scrollbar">
-                        <h2 className="text-[24px] font-black mb-6 text-center tracking-tighter">Nuevo Registro</h2>
-                        <form onSubmit={async (e: any) => {
-                            e.preventDefault();
-                            setIsSubmitting(true);
-                            const fd = new FormData(e.target);
-                            const monto = parseCurrency(fd.get("monto") as string);
-                            const tipo = fd.get("tipo") as string;
-                            await addData("transactions", { monto, description: fd.get("desc"), categoriaId: fd.get("cat"), fecha: fd.get("fecha"), tipo });
-                            setVistaActual('overview');
-                            setIsSubmitting(false);
-                        }} className="space-y-5">
-                            <div className="bg-gray-200/40 dark:bg-white/5 p-0.5 rounded-[18px] flex border border-gray-300/10">
-                                {['gasto', 'ingreso', 'ahorro', 'inversion'].map(t => (
-                                    <label key={t} className="flex-1 text-center cursor-pointer">
-                                        <input type="radio" name="tipo" value={t} defaultChecked={t === 'gasto'} className="peer hidden" />
-                                        <div className="py-2 rounded-[14px] text-[10px] font-bold text-gray-400 peer-checked:bg-white dark:peer-checked:bg-white/10 peer-checked:text-gray-900 dark:peer-checked:text-white transition-all capitalize tracking-tight">{t}</div>
-                                    </label>
-                                ))}
-                            </div>
-                            <div className="text-center py-4">
-                                <CurrencyInput name="monto" required className="text-6xl font-black bg-transparent text-center outline-none w-full text-gray-900 dark:text-white placeholder-gray-100 tracking-tighter" placeholder="0" />
-                            </div>
-                            <div className="space-y-3">
-                                <input name="desc" required className="w-full bg-white dark:bg-[#1C1C1E] p-4 rounded-[20px] outline-none font-bold text-[16px] border border-gray-100 dark:border-white/5" placeholder="¿En qué gastaste?" autoComplete="off" />
-                                <select name="cat" className="w-full bg-white dark:bg-[#1C1C1E] p-4 rounded-[20px] font-bold text-[16px] border border-gray-100 dark:border-white/5 appearance-none">{categorias.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}</select>
-                                <input name="fecha" type="date" defaultValue={new Date().toISOString().split('T')[0]} className="w-full bg-white dark:bg-[#1C1C1E] p-4 rounded-[20px] font-bold text-[16px] border border-gray-100 dark:border-white/5" />
-                            </div>
-                            <button type="submit" disabled={isSubmitting} className="w-full bg-[#007AFF] text-white py-4 rounded-[24px] text-[17px] font-black shadow-lg shadow-blue-500/20 active:scale-95 transition-all">
-                                {isSubmitting ? <Loader2 className="animate-spin mx-auto" /> : "Guardar"}
-                            </button>
-                            <button type="button" onClick={() => setVistaActual('overview')} className="w-full py-2 text-gray-400 font-bold text-[13px]">Cancelar</button>
-                        </form>
+
+                        {!selectedTxType ? (
+                            <TransactionTypeSelector
+                                onSelect={(type) => setSelectedTxType(type)}
+                                onClose={() => { setSelectedTxType(null); setVistaActual('overview'); }}
+                            />
+                        ) : (
+                            <>
+                                <div className="flex justify-between items-center mb-6">
+                                    <h2 className="text-[24px] font-black tracking-tighter capitalize">
+                                        {selectedTxType === 'gasto' && 'Nuevo Gasto'}
+                                        {selectedTxType === 'ingreso' && 'Nuevo Ingreso'}
+                                        {selectedTxType === 'ahorro' && 'Nuevo Ahorro'}
+                                        {selectedTxType === 'inversion' && 'Nueva Inversión'}
+                                    </h2>
+                                    <button
+                                        onClick={() => setSelectedTxType(null)}
+                                        className="text-xs font-bold text-gray-400 uppercase"
+                                    >
+                                        Cambiar
+                                    </button>
+                                </div>
+                                <UnifiedTransactionForm
+                                    initialType={selectedTxType}
+                                    categorias={categorias}
+                                    onClose={() => { setSelectedTxType(null); setVistaActual('overview'); }}
+                                    onSuccess={() => { setSelectedTxType(null); setVistaActual('overview'); }}
+                                />
+                            </>
+                        )}
                     </div>
                 )}
 
@@ -412,13 +477,13 @@ export default function App() {
                     { id: 'overview', icon: Home, lbl: 'Inicio' },
                     { id: 'koin', icon: CreditCard, lbl: 'Koin' }
                 ].map(item => (
-                    <button key={item.id} onClick={() => { setVistaActual(item.id); setDrillDownView(null); }} className={`flex flex-col items-center gap-1.5 w-14 transition-colors pt-2 ${vistaActual === item.id ? 'text-[#007AFF]' : 'text-gray-400'}`}>
+                    <button key={item.id} onClick={() => { setVistaActual(item.id); setDrillDownView(null); setSelectedTxType(null); }} className={`flex flex-col items-center gap-1.5 w-14 transition-colors pt-2 ${vistaActual === item.id ? 'text-[#007AFF]' : 'text-gray-400'}`}>
                         <item.icon size={22} strokeWidth={vistaActual === item.id ? 2.5 : 2} />
                         <span className="text-[10px] font-bold tracking-tight">{item.lbl}</span>
                     </button>
                 ))}
 
-                <button onClick={() => setVistaActual("transactions")} className="relative -top-7 transform active:scale-90 transition-transform">
+                <button onClick={() => { setVistaActual("transactions"); setSelectedTxType(null); }} className="relative -top-7 transform active:scale-90 transition-transform">
                     <div className="w-16 h-16 bg-[#007AFF] rounded-full flex items-center justify-center shadow-2xl shadow-blue-500/40 text-white border-[6px] border-[#F2F2F7] dark:border-black">
                         <Plus size={30} strokeWidth={3.5} />
                     </div>
@@ -428,7 +493,7 @@ export default function App() {
                     { id: 'ai-advisor', icon: MessageSquare, lbl: 'Asesor' },
                     { id: 'history', icon: History, lbl: 'Historial' }
                 ].map(item => (
-                    <button key={item.id} onClick={() => { setVistaActual(item.id); setDrillDownView(null); }} className={`flex flex-col items-center gap-1.5 w-14 transition-colors pt-2 ${vistaActual === item.id ? 'text-[#007AFF]' : 'text-gray-400'}`}>
+                    <button key={item.id} onClick={() => { setVistaActual(item.id); setDrillDownView(null); setSelectedTxType(null); }} className={`flex flex-col items-center gap-1.5 w-14 transition-colors pt-2 ${vistaActual === item.id ? 'text-[#007AFF]' : 'text-gray-400'}`}>
                         <item.icon size={22} strokeWidth={vistaActual === item.id ? 2.5 : 2} />
                         <span className="text-[10px] font-bold tracking-tight">{item.lbl}</span>
                     </button>

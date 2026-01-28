@@ -338,10 +338,8 @@ export function TarjetasCredito({ privacyMode }: { privacyMode: boolean }) {
                     <div className="flex justify-between text-[10px] font-bold uppercase text-slate-400"><span>Usado: {formatCurrency(totals.total)}</span><span>{Math.round(creditUsagePct)}%</span></div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-3">
-                    <button onClick={() => PersonalCats.length === 0 ? setModal({ type: 'add_cat' }) : setModal({ type: 'action_expense' })} className="bg-white dark:bg-ios-darkCard p-4 rounded-3xl flex flex-col items-center gap-2 active:scale-95 transition-transform shadow-sm border border-slate-50 dark:border-slate-800"><div className="bg-ios-blue text-white p-3 rounded-full"><Icons.Card className="w-4 h-4" /></div><span className="text-[10px] font-black uppercase text-slate-500">Gasto</span></button>
-                    <button onClick={() => ExternalCats.length === 0 ? setModal({ type: 'add_cat_external' }) : setModal({ type: 'action_debt' })} className="bg-white dark:bg-ios-darkCard p-4 rounded-3xl flex flex-col items-center gap-2 active:scale-95 transition-transform shadow-sm border border-slate-50 dark:border-slate-800"><div className="bg-ios-purple text-white p-3 rounded-full"><Icons.Users className="w-4 h-4" /></div><span className="text-[10px] font-black uppercase text-slate-500">Préstamo</span></button>
-                    <button onClick={() => setModal({ type: 'manage_budgets' })} className="bg-white dark:bg-ios-darkCard p-4 rounded-3xl flex flex-col items-center gap-2 active:scale-95 transition-transform shadow-sm border border-slate-50 dark:border-slate-800"><div className="bg-ios-green text-white p-3 rounded-full"><Icons.Wallet className="w-4 h-4" /></div><span className="text-[10px] font-black uppercase text-slate-500">Topes</span></button>
+                <div className="grid grid-cols-1 gap-3">
+                    <button onClick={() => setModal({ type: 'manage_budgets' })} className="bg-white dark:bg-ios-darkCard p-4 rounded-3xl flex flex-col items-center gap-2 active:scale-95 transition-transform shadow-sm border border-slate-50 dark:border-slate-800"><div className="bg-ios-green text-white p-3 rounded-full"><Icons.Wallet className="w-4 h-4" /></div><span className="text-[10px] font-black uppercase text-slate-500">Configurar Topes</span></button>
                 </div>
 
                 {/* Lists ... (Same as original, but using privacyMode?) */}

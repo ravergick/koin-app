@@ -9,7 +9,7 @@ export const MainWidget = ({ title, value, theme, icon: Icon, onClick, privacyMo
     return (
         <button
             onClick={onClick}
-            className="bg-white dark:bg-[#1C1C1E] p-4 rounded-[26px] active:scale-[0.97] transition-all flex flex-col justify-between h-[96px] text-left border border-gray-100 dark:border-white/5 shadow-sm"
+            className="w-full bg-white dark:bg-[#1C1C1E] p-4 rounded-[26px] active:scale-[0.97] transition-all flex flex-col justify-between h-[96px] text-left border border-gray-100 dark:border-white/5 shadow-sm"
         >
             <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${bgClass}`}>
                 <CompIcon size={18} className={colorClass} strokeWidth={2.5} />
