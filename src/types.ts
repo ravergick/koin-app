@@ -14,6 +14,7 @@ export interface Category {
     iconKey: string;
     tipo: 'necesidad' | 'deseo' | 'ahorro' | 'inversion';
     presupuesto?: number;
+    targetAmount?: number; // Savings Goal
     gastado?: number; // Computed
     Icon?: any; // Component
     grupo?: string; // Computed

@@ -2,9 +2,26 @@ import React from "react";
 
 export const MainWidget = ({ title, value, theme, icon: Icon, onClick, privacyMode }: any) => {
     const CompIcon = Icon;
-    const isRed = theme === 'red';
-    const colorClass = isRed ? 'text-rose-500' : 'text-emerald-500';
-    const bgClass = isRed ? 'bg-rose-500/10' : 'bg-emerald-500/10';
+
+    let colorClass = 'text-emerald-500';
+    let bgClass = 'bg-emerald-500/10';
+
+    if (theme === 'red') {
+        colorClass = 'text-rose-500';
+        bgClass = 'bg-rose-500/10';
+    } else if (theme === 'blue') {
+        colorClass = 'text-blue-500';
+        bgClass = 'bg-blue-500/10';
+    } else if (theme === 'indigo') {
+        colorClass = 'text-indigo-500';
+        bgClass = 'bg-indigo-500/10';
+    } else if (theme === 'purple') {
+        colorClass = 'text-purple-500';
+        bgClass = 'bg-purple-500/10';
+    } else if (theme === 'orange') {
+        colorClass = 'text-orange-500';
+        bgClass = 'bg-orange-500/10';
+    }
 
     return (
         <button

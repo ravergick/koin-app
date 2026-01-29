@@ -60,7 +60,24 @@ const ICON_MAP: Record<string, any> = {
     Home, ShoppingBag, PiggyBank, CreditCard, TrendingUp, Landmark, ShieldCheck, HandCoins, Target
 };
 
-const DEFAULT_CATEGORIES: Omit<Category, 'id'>[] = [];
+const DEFAULT_CATEGORIES: Omit<Category, 'id'>[] = [
+    // GASTOS (Expenses)
+    { nombre: "Mercado", iconKey: "ShoppingBag", color: "#10B981", tipo: "necesidad" },
+    { nombre: "Ropa", iconKey: "Shirt", color: "#F43F5E", tipo: "deseo" },
+    { nombre: "Transporte", iconKey: "Car", color: "#EF4444", tipo: "necesidad" },
+    { nombre: "Restaurantes", iconKey: "Utensils", color: "#F97316", tipo: "deseo" },
+    { nombre: "Hogar", iconKey: "Home", color: "#3B82F6", tipo: "necesidad" },
+    { nombre: "Cuidado personal", iconKey: "Heart", color: "#8B5CF6", tipo: "necesidad" },
+
+    // AHORRO (Savings)
+    { nombre: "Tecnologia", iconKey: "Gamepad2", color: "#64748B", tipo: "ahorro" },
+    { nombre: "Viajes", iconKey: "Plane", color: "#0EA5E9", tipo: "ahorro" },
+    { nombre: "Hogar", iconKey: "Home", color: "#3B82F6", tipo: "ahorro" }, // Shared name, different type
+    { nombre: "Vehículo", iconKey: "Car", color: "#EF4444", tipo: "ahorro" },
+    { nombre: "Educación", iconKey: "GraduationCap", color: "#4F46E5", tipo: "ahorro" },
+    { nombre: "Fondo de auxilio", iconKey: "ShieldCheck", color: "#22C55E", tipo: "ahorro" },
+    { nombre: "Bienes raices", iconKey: "Landmark", color: "#D97706", tipo: "ahorro" },
+];
 
 // --- HELPER COMPONENTS ---
 

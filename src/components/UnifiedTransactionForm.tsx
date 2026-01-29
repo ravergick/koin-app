@@ -66,6 +66,10 @@ export const UnifiedTransactionForm = ({ categorias, onClose, onSuccess, initial
     const [newContactName, setNewContactName] = useState('');
     const [isAddingContact, setIsAddingContact] = useState(false);
 
+    // Savings Goal State
+    const [isGoalEnabled, setIsGoalEnabled] = useState(false);
+    const [goalAmount, setGoalAmount] = useState<number>(0);
+
     // New Category State
     const [isAddingCategory, setIsAddingCategory] = useState(false);
     const [newCategoryName, setNewCategoryName] = useState('');
@@ -137,7 +141,7 @@ export const UnifiedTransactionForm = ({ categorias, onClose, onSuccess, initial
             nombre: newCategoryName,
             color: style.color,
             iconKey: style.icon,
-            tipo: "necesidad"
+            tipo: (tipo === 'ahorro' ? 'ahorro' : tipo === 'inversion' ? 'inversion' : 'necesidad') as any
         };
         const ref = await addData("categories", newCat);
         setCatId(ref.id);
@@ -151,7 +155,7 @@ export const UnifiedTransactionForm = ({ categorias, onClose, onSuccess, initial
 
         // Refined validation with specific feedback
         if (!amount || amount <= 0) { alert("Por favor, ingresa un monto mayor a 0"); return; }
-        if (tipo !== 'ingreso' && !catId) { alert("Por favor, selecciona una categoría"); return; }
+        if (tipo !== 'ingreso' && tipo !== 'ahorro' && !catId) { alert("Por favor, selecciona una categoría"); return; }
         if (!desc.trim()) { alert("Por favor, ingresa una descripción"); return; }
 
         setIsSubmitting(true);
@@ -170,7 +174,7 @@ export const UnifiedTransactionForm = ({ categorias, onClose, onSuccess, initial
             const txData: any = {
                 monto: amount,
                 description: desc,
-                categoriaId: catId || 'general_income', // Default for income if empty
+                categoriaId: catId || (tipo === 'ingreso' ? 'general_income' : 'general_savings'), // Default if empty
                 fecha: date,
                 tipo,
                 paymentMethod: paymentMethod === 'cash' ? 'Efectivo' : paymentMethod === 'debit' ? 'Débito' : paymentMethod === 'transfer' ? 'Transferencia' : 'Tarjeta de Crédito',
@@ -200,6 +204,11 @@ export const UnifiedTransactionForm = ({ categorias, onClose, onSuccess, initial
 
             // Save Main Tx
             await addData("transactions", txData);
+
+            // Update Category Goal if applicable
+            if (tipo === 'ahorro' && isGoalEnabled && catId && goalAmount > 0) {
+                await updateData("categories", catId, { targetAmount: goalAmount });
+            }
 
             // 2. If Credit Card, add to card transactions
             if (tipo === 'gasto' && creditCards.find(c => c.id === paymentMethod)) {
@@ -238,18 +247,17 @@ export const UnifiedTransactionForm = ({ categorias, onClose, onSuccess, initial
 
             {/* 1. AMOUNT */}
             <div className="text-center">
-                <CurrencyInput
-                    value={amount}
-                    onChange={(val: string) => setAmount(Number(val))}
-                    name="monto"
-                    required
-                    className={`text-6xl font-black bg-transparent text-center outline-none w-full placeholder-gray-200 tracking-tighter ${tipo === 'ingreso' ? 'text-emerald-500 placeholder-emerald-100' :
-                        tipo === 'gasto' ? 'text-gray-900 dark:text-white' :
-                            tipo === 'ahorro' ? 'text-blue-500 placeholder-blue-100' :
-                                'text-purple-500 placeholder-purple-100'
-                        }`}
-                    placeholder="0"
-                />
+                <div className="flex items-center justify-center gap-1">
+                    <span className="text-6xl font-black text-gray-900 dark:text-white tracking-tighter">$</span>
+                    <CurrencyInput
+                        value={amount}
+                        onChange={(val: string) => setAmount(Number(val))}
+                        name="monto"
+                        required
+                        className="text-6xl font-black bg-transparent text-left outline-none w-auto max-w-[280px] placeholder-gray-200 tracking-tighter text-gray-900 dark:text-white placeholder:text-gray-200"
+                        placeholder="0"
+                    />
+                </div>
                 <p className="text-xs font-bold uppercase text-gray-400 mt-2">
                     {tipo}
                 </p>
@@ -354,7 +362,7 @@ export const UnifiedTransactionForm = ({ categorias, onClose, onSuccess, initial
                                 </button>
 
                                 {/* Categories List */}
-                                {Array.from(new Map(categorias.map(c => [c.nombre.toLowerCase(), c])).values()).map(c => {
+                                {Array.from(new Map(categorias.filter(c => tipo === 'gasto' ? (c.tipo === 'necesidad' || c.tipo === 'deseo') : c.tipo === tipo).map(c => [c.nombre.toLowerCase(), c])).values()).map(c => {
                                     const Icon = (c.iconKey && ICON_MAP[c.iconKey]) ? ICON_MAP[c.iconKey] : ShoppingBag;
 
                                     // Long Press Logic
@@ -411,14 +419,14 @@ export const UnifiedTransactionForm = ({ categorias, onClose, onSuccess, initial
             {/* DESCRIPTION FIELD (Moved here) */}
             <div className="px-2">
                 <label className="text-[10px] font-bold text-gray-400 uppercase ml-4 mb-1 block tracking-wider">
-                    {tipo === 'gasto' ? 'Descripción' : tipo === 'ingreso' ? 'Concepto' : 'Meta / Detalle'}
+                    {tipo === 'gasto' ? 'Descripción' : tipo === 'ahorro' ? 'Descripción del ahorro' : 'Concepto'}
                 </label>
                 <input
                     value={desc}
                     onChange={e => setDesc(e.target.value)}
                     required
                     className="w-full bg-white dark:bg-[#1C1C1E] p-5 rounded-[24px] outline-none font-bold text-[18px] border border-gray-100 dark:border-white/5 shadow-sm focus:border-blue-500/50 transition-colors"
-                    placeholder={tipo === 'ingreso' ? "Ej: Salario, Venta..." : "Ej: Almuerzo, Uber, Ropa..."}
+                    placeholder={tipo === 'ingreso' ? "Ej: Salario, Venta..." : tipo === 'ahorro' ? "Ej: Bicicleta, Comedor, Televisor..." : "Ej: Almuerzo, Uber, Ropa..."}
                     autoComplete="off"
                 />
             </div>
@@ -426,6 +434,39 @@ export const UnifiedTransactionForm = ({ categorias, onClose, onSuccess, initial
 
 
             {/* 3. SHARED SWITCH (Only for Expenses) */}
+            {tipo === 'ahorro' && (
+                <div className="bg-white dark:bg-[#1C1C1E] p-4 rounded-[24px] border border-gray-100 dark:border-white/5 mx-2 mt-4">
+                    <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-3">
+                            <div className="bg-blue-500/10 text-blue-500 p-2.5 rounded-2xl"><Landmark size={20} /></div>
+                            <span className="font-bold text-sm">Definir Presupuesto / Meta</span>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setIsGoalEnabled(!isGoalEnabled)}
+                            className={`w-14 h-8 rounded-full transition-all duration-300 relative ${isGoalEnabled ? 'bg-blue-500 shadow-blue-500/30 shadow-lg' : 'bg-gray-200 dark:bg-gray-700'}`}
+                        >
+                            <div className={`w-6 h-6 bg-white rounded-full absolute top-1 transition-all shadow-sm ${isGoalEnabled ? 'left-7' : 'left-1'}`} />
+                        </button>
+                    </div>
+
+                    {isGoalEnabled && (
+                        <div className="mt-3 animate-scale-in">
+                            <label className="text-[10px] font-bold text-blue-400 uppercase tracking-wide block mb-1">Valor Meta</label>
+                            <div className="flex items-center gap-1 bg-blue-50 dark:bg-blue-900/10 p-3 rounded-2xl">
+                                <span className="text-xl font-black text-blue-500">$</span>
+                                <CurrencyInput
+                                    value={goalAmount}
+                                    onChange={(val: string) => setGoalAmount(Number(val))}
+                                    className="w-full bg-transparent font-black text-xl text-blue-900 dark:text-blue-100 outline-none placeholder-blue-300"
+                                    placeholder="0"
+                                />
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+
             {tipo === 'gasto' && (
                 <div className="bg-white dark:bg-[#1C1C1E] p-4 rounded-[24px] flex items-center justify-between border border-gray-100 dark:border-white/5 mx-2 mt-4">
                     <div className="flex items-center gap-3">

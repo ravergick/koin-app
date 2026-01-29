@@ -60,10 +60,7 @@ export const Dashboard = ({
 
             {/* 1. MONTHLY SUMMARY */}
             <section>
-                <div className="flex justify-between items-end px-2 mb-2">
-                    <h2 className="text-[17px] font-black tracking-tight text-gray-900 dark:text-white">Resumen Mensual</h2>
-                    <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wide bg-gray-100 dark:bg-white/10 px-2 py-0.5 rounded-lg">{monthName}</span>
-                </div>
+
                 <SummaryCard
                     income={income}
                     expenses={expenses}
@@ -97,7 +94,7 @@ export const Dashboard = ({
                     <MainWidget
                         title="Ahorro"
                         value={savings}
-                        theme="green"
+                        theme="blue"
                         icon={PiggyBank}
                         onClick={() => toggleSection('ahorro')}
                         privacyMode={privacyMode}
@@ -107,7 +104,7 @@ export const Dashboard = ({
                     <MainWidget
                         title="Inversión"
                         value={investments}
-                        theme="blue"
+                        theme="purple"
                         icon={HandCoins}
                         onClick={() => toggleSection('inversion')}
                         privacyMode={privacyMode}
@@ -117,7 +114,7 @@ export const Dashboard = ({
                     <MainWidget
                         title="Préstamos"
                         value={debts + creditCardsBalance}
-                        theme="red"
+                        theme="orange"
                         icon={Landmark}
                         onClick={() => toggleSection('deudas')}
                         privacyMode={privacyMode}
