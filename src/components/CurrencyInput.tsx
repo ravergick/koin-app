@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 
-export const CurrencyInput = ({ value, onChange, placeholder, name, className, required = false }: any) => {
+export const CurrencyInput = ({ value, onChange, placeholder, name, className, required = false, autoFocus = false }: any) => {
     const [displayValue, setDisplayValue] = useState("");
 
     useEffect(() => {
@@ -29,6 +29,7 @@ export const CurrencyInput = ({ value, onChange, placeholder, name, className, r
             className={className}
             required={required}
             autoComplete="off"
+            autoFocus={autoFocus}
         />
     );
 };

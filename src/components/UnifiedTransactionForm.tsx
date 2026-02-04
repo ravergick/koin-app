@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { X, CreditCard, Banknote, Landmark, Smartphone, Users, Calculator, Loader2, Plus, GripVertical, ChevronRight, ShoppingBag, Car, Home, Utensils, Heart, Zap, Coffee, Gift, Music, Plane, GraduationCap, Briefcase, DollarSign, Trash2, Dumbbell, Shirt, Film, Gamepad2, BookOpen, Pill, Bus, Fuel } from 'lucide-react';
 import { CurrencyInput } from "./CurrencyInput";
 import { QuickCalculator } from "./QuickCalculator";
+import { getLocalDateString } from "../utils/dateUtils";
 import { addData, auth, db, subscribeToCollection, deleteData, updateData } from "../services/firebase";
 import { doc, onSnapshot, writeBatch } from "firebase/firestore";
 import { Category, CreditCardCategory, Contact } from "../types";
@@ -52,7 +53,7 @@ export const UnifiedTransactionForm = ({ categorias, onClose, onSuccess, initial
     // Form State
     const [amount, setAmount] = useState<number>(0);
     const [desc, setDesc] = useState('');
-    const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+    const [date, setDate] = useState(getLocalDateString());
     const [catId, setCatId] = useState('');
     const [tipo, setTipo] = useState<string>(initialType);
     const [paymentMethod, setPaymentMethod] = useState<string>('cash'); // 'cash', 'debit', 'transfer', or cardId
@@ -217,7 +218,7 @@ export const UnifiedTransactionForm = ({ categorias, onClose, onSuccess, initial
                     id: Date.now() + 1, // slight offset
                     amount: amount,
                     category: paymentMethod, // The Card ID
-                    date: new Date().toISOString(),
+                    date: getLocalDateString(),
                     desc: desc,
                     isHiddenFromMain: true,
                     tipo: 'system_credit_debt_log' // This will make it ignored by main app's 'gasto' filter
@@ -245,52 +246,75 @@ export const UnifiedTransactionForm = ({ categorias, onClose, onSuccess, initial
                 />
             )}
 
-            {/* 1. AMOUNT */}
-            <div className="text-center">
-                <div className="flex items-center justify-center gap-1">
-                    <span className="text-6xl font-black text-gray-900 dark:text-white tracking-tighter">$</span>
-                    <CurrencyInput
-                        value={amount}
-                        onChange={(val: string) => setAmount(Number(val))}
-                        name="monto"
-                        required
-                        className="text-6xl font-black bg-transparent text-left outline-none w-auto max-w-[280px] placeholder-gray-200 tracking-tighter text-gray-900 dark:text-white placeholder:text-gray-200"
-                        placeholder="0"
-                    />
+            {/* 1. AMOUNT - Hero Section */}
+            <div className="text-center py-6 px-4 mb-2 animate-scale-in">
+                <div className="relative inline-block">
+                    {/* Ring and Container for prominence - WHITE BACKGROUND MATCHING DESCRIPTION */}
+                    <div className="flex items-center justify-center gap-2 p-5 rounded-[24px] bg-white dark:bg-[#1C1C1E] border border-gray-100 dark:border-white/5 shadow-sm transition-all">
+                        <span className={`text-[48px] font-black tracking-tighter ${tipo === 'ingreso' ? 'text-emerald-400' :
+                            tipo === 'ahorro' ? 'text-blue-400' :
+                                tipo === 'inversion' ? 'text-purple-400' :
+                                    'text-rose-500'
+                            }`}>$</span>
+                        <CurrencyInput
+                            value={amount}
+                            onChange={(val: string) => setAmount(Number(val))}
+                            name="monto"
+                            required
+                            autoFocus
+                            className={`text-[56px] font-black bg-transparent text-left outline-none w-auto max-w-[220px] tracking-tighter placeholder:text-gray-200 dark:placeholder:text-white/5 ${tipo === 'ingreso' ? 'text-emerald-400' :
+                                tipo === 'ahorro' ? 'text-blue-400' :
+                                    tipo === 'inversion' ? 'text-purple-400' :
+                                        'text-rose-500'
+                                }`}
+                            placeholder="0"
+                        />
+                    </div>
                 </div>
-                <p className="text-xs font-bold uppercase text-gray-400 mt-2">
-                    {tipo}
-                </p>
+                <div className="mt-4 flex flex-col items-center">
+                    <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-[0.2em] shadow-sm ${tipo === 'ingreso' ? 'bg-emerald-500/10 text-emerald-500' :
+                        tipo === 'ahorro' ? 'bg-blue-500/10 text-blue-500' :
+                            tipo === 'inversion' ? 'bg-purple-500/10 text-purple-500' :
+                                'bg-gray-100 dark:bg-white/10 text-gray-400'
+                        }`}>
+                        Ingresa el valor del {tipo === 'ingreso' ? 'ingreso' : tipo === 'ahorro' ? 'ahorro' : tipo === 'inversion' ? 'activo' : 'gasto'}
+                    </span>
+                </div>
             </div>
 
             {/* 2. PAYMENT METHOD (Only for Expenses) */}
             {tipo === 'gasto' && (
-                <div className="flex gap-2 justify-center pb-6">
-                    {[
-                        { id: 'credit', icon: CreditCard, label: 'Crédito', color: 'bg-fuchsia-500' },
-                        { id: 'transfer', icon: Landmark, label: 'Transf.', color: 'bg-orange-500' },
-                        { id: 'debit', icon: Smartphone, label: 'Débito', color: 'bg-blue-500' },
-                        { id: 'cash', icon: Banknote, label: 'Efectivo', color: 'bg-emerald-500' }
-                    ].map(m => (
-                        <button
-                            key={m.id}
-                            type="button"
-                            onClick={() => {
-                                if (m.id === 'credit') {
-                                    setPaymentMethod(creditCards.length > 0 ? creditCards[0].id : 'credit');
-                                } else {
-                                    setPaymentMethod(m.id);
-                                }
-                            }}
-                            className={`flex flex-col items-center gap-1 p-3 rounded-2xl w-20 transition-all duration-300 ${(paymentMethod === m.id || (m.id === 'credit' && creditCards.find(c => c.id === paymentMethod)))
-                                ? `${m.color} text-white shadow-lg shadow-black/10 scale-110 -translate-y-1`
-                                : 'bg-gray-100 dark:bg-white/5 text-gray-400'
-                                }`}
-                        >
-                            <m.icon size={20} strokeWidth={2.5} />
-                            <span className="text-[9px] font-bold uppercase">{m.label}</span>
-                        </button>
-                    ))}
+                <div className="px-2 mt-4">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase ml-4 mb-1 block tracking-wider">
+                        Método de pago
+                    </label>
+                    <div className="bg-white dark:bg-[#1C1C1E] p-4 rounded-[24px] border border-gray-100 dark:border-white/5 shadow-sm flex gap-2 justify-center pb-4">
+                        {[
+                            { id: 'credit', icon: CreditCard, label: 'Crédito', color: 'bg-fuchsia-500' },
+                            { id: 'transfer', icon: Landmark, label: 'Transf.', color: 'bg-orange-500' },
+                            { id: 'debit', icon: Smartphone, label: 'Débito', color: 'bg-blue-500' },
+                            { id: 'cash', icon: Banknote, label: 'Efectivo', color: 'bg-emerald-500' }
+                        ].map(m => (
+                            <button
+                                key={m.id}
+                                type="button"
+                                onClick={() => {
+                                    if (m.id === 'credit') {
+                                        setPaymentMethod(creditCards.length > 0 ? creditCards[0].id : 'credit');
+                                    } else {
+                                        setPaymentMethod(m.id);
+                                    }
+                                }}
+                                className={`flex flex-col items-center gap-1 p-3 rounded-2xl w-20 transition-all duration-300 ${(paymentMethod === m.id || (m.id === 'credit' && creditCards.find(c => c.id === paymentMethod)))
+                                    ? `${m.color} text-white shadow-lg shadow-black/10 scale-110 -translate-y-1`
+                                    : 'bg-gray-100 dark:bg-white/5 text-gray-400'
+                                    }`}
+                            >
+                                <m.icon size={20} strokeWidth={2.5} />
+                                <span className="text-[9px] font-bold uppercase">{m.label}</span>
+                            </button>
+                        ))}
+                    </div>
                 </div>
             )}
 

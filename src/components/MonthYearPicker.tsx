@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { X, Check } from 'lucide-react';
+import React, { useState } from 'react';
+import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
 
 interface MonthYearPickerProps {
     currentDate: Date;
@@ -8,26 +8,20 @@ interface MonthYearPickerProps {
 }
 
 const MONTHS = [
-    "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
-    "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+    "Ene", "Feb", "Mar", "Abr", "May", "Jun",
+    "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"
 ];
-
-// Generate years: current year - 5 to current year + 5
-const currentYear = new Date().getFullYear();
-const YEARS = Array.from({ length: 11 }, (_, i) => currentYear - 5 + i);
 
 export const MonthYearPicker = ({ currentDate, onDateChange, onClose }: MonthYearPickerProps) => {
     const [selectedMonth, setSelectedMonth] = useState(currentDate.getMonth());
     const [selectedYear, setSelectedYear] = useState(currentDate.getFullYear());
     const [isClosing, setIsClosing] = useState(false);
 
-    const handleConfirm = () => {
+    const handleConfirm = (month: number) => {
+        const newDate = new Date(selectedYear, month, 1);
+        onDateChange(newDate);
         setIsClosing(true);
-        setTimeout(() => {
-            const newDate = new Date(selectedYear, selectedMonth, 1);
-            onDateChange(newDate);
-            onClose();
-        }, 200);
+        setTimeout(onClose, 200);
     };
 
     const handleClose = () => {
@@ -35,55 +29,81 @@ export const MonthYearPicker = ({ currentDate, onDateChange, onClose }: MonthYea
         setTimeout(onClose, 200);
     };
 
+    const adjustYear = (n: number) => {
+        setSelectedYear(prev => prev + n);
+    };
+
     return (
-        <div className={`fixed inset-0 z-50 flex items-end justify-center sm:items-center bg-black/40 backdrop-blur-sm transition-opacity duration-300 ${isClosing ? 'opacity-0' : 'opacity-100'}`}>
+        <div className={`fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/60 backdrop-blur-md transition-opacity duration-300 ${isClosing ? 'opacity-0' : 'opacity-100'}`}>
             <div
-                className={`bg-white dark:bg-[#1C1C1E] w-full max-w-md sm:rounded-[32px] rounded-t-[32px] overflow-hidden shadow-2xl transition-transform duration-300 ${isClosing ? 'translate-y-full' : 'translate-y-0'}`}
+                className={`bg-white dark:bg-[#1C1C1E] w-full max-w-sm rounded-[32px] overflow-hidden shadow-2xl transition-all duration-300 ${isClosing ? 'scale-95 opacity-0' : 'scale-100 opacity-100'} border border-gray-200 dark:border-white/10`}
             >
-                {/* Header */}
-                <div className="flex justify-between items-center p-4 border-b border-gray-100 dark:border-white/5 bg-gray-50/50 dark:bg-white/5">
-                    <button onClick={handleClose} className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors">
-                        <span className="text-sm font-bold">Cancelar</span>
-                    </button>
-                    <span className="text-sm font-black uppercase tracking-wider text-gray-500">Seleccionar Fecha</span>
-                    <button onClick={handleConfirm} className="p-2 text-[#007AFF] font-bold text-sm">
-                        Confirmar
-                    </button>
+                {/* Header with Year Selector */}
+                <div className="p-6 border-b border-gray-100 dark:border-white/5 bg-gray-50/50 dark:bg-white/2">
+                    <div className="flex justify-between items-center">
+                        <h3 className="flex items-center gap-2 text-[17px] font-black tracking-tight">
+                            <Calendar size={18} className="text-[#007AFF]" />
+                            Seleccionar mes
+                        </h3>
+                        <button onClick={handleClose} className="text-gray-400 font-bold text-sm hover:text-gray-600 dark:hover:text-gray-200 transition-colors">
+                            Cerrar
+                        </button>
+                    </div>
+
+                    <div className="mt-6 flex items-center justify-between bg-gray-100/50 dark:bg-white/5 p-2 rounded-2xl border border-gray-200/50 dark:border-white/5">
+                        <button
+                            onClick={() => adjustYear(-1)}
+                            className="w-10 h-10 flex items-center justify-center rounded-xl bg-white dark:bg-[#2C2C2E] shadow-sm active:scale-90 transition-all text-gray-600 dark:text-white"
+                        >
+                            <ChevronLeft size={20} strokeWidth={2.5} />
+                        </button>
+
+                        <div className="flex flex-col items-center">
+                            <span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Año</span>
+                            <span className="text-[20px] font-black tracking-tight text-[#007AFF]">{selectedYear}</span>
+                        </div>
+
+                        <button
+                            onClick={() => adjustYear(1)}
+                            className="w-10 h-10 flex items-center justify-center rounded-xl bg-white dark:bg-[#2C2C2E] shadow-sm active:scale-90 transition-all text-gray-600 dark:text-white"
+                        >
+                            <ChevronRight size={20} strokeWidth={2.5} />
+                        </button>
+                    </div>
                 </div>
 
-                {/* Picker Columns */}
-                <div className="flex h-[250px] relative">
-                    {/* Selection Highlight Bar */}
-                    <div className="absolute top-1/2 left-0 right-0 h-[40px] -mt-[20px] bg-gray-100 dark:bg-white/5 pointer-events-none border-t border-b border-gray-200 dark:border-white/10" />
+                {/* Grid of Months */}
+                <div className="p-6">
+                    <div className="grid grid-cols-3 gap-3">
+                        {MONTHS.map((m, i) => {
+                            const isSelected = selectedMonth === i && selectedYear === currentDate.getFullYear();
+                            const isActualSelection = selectedMonth === i;
 
-                    {/* Months Column */}
-                    <div className="flex-1 overflow-y-auto no-scrollbar snap-y snap-mandatory py-[105px]">
-                        {MONTHS.map((m, i) => (
-                            <div
-                                key={m}
-                                onClick={() => setSelectedMonth(i)}
-                                className={`h-[40px] flex items-center justify-center snap-center cursor-pointer transition-all duration-200 ${selectedMonth === i ? 'font-black text-gray-900 dark:text-white scale-110' : 'text-gray-400 font-medium scale-95 opacity-50'}`}
-                            >
-                                {m}
-                            </div>
-                        ))}
+                            return (
+                                <button
+                                    key={m}
+                                    onClick={() => {
+                                        setSelectedMonth(i);
+                                        handleConfirm(i);
+                                    }}
+                                    className={`h-14 rounded-2xl font-bold transition-all duration-200 flex flex-col items-center justify-center gap-0.5 relative overflow-hidden group
+                                        ${isActualSelection
+                                            ? 'bg-[#007AFF] text-white shadow-lg shadow-blue-500/30 scale-[1.05] z-10'
+                                            : 'bg-gray-50 dark:bg-white/5 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/10 active:scale-95'}`}
+                                >
+                                    <span className="text-[15px] font-black tracking-tight">{m}</span>
+                                    {isActualSelection && <div className="absolute top-1 right-1 w-1.5 h-1.5 bg-white rounded-full"></div>}
+                                </button>
+                            );
+                        })}
                     </div>
+                </div>
 
-                    {/* Divider */}
-                    <div className="w-[1px] bg-gray-100 dark:bg-white/5 my-4" />
-
-                    {/* Years Column */}
-                    <div className="flex-1 overflow-y-auto no-scrollbar snap-y snap-mandatory py-[105px]">
-                        {YEARS.map((y) => (
-                            <div
-                                key={y}
-                                onClick={() => setSelectedYear(y)}
-                                className={`h-[40px] flex items-center justify-center snap-center cursor-pointer transition-all duration-200 ${selectedYear === y ? 'font-black text-gray-900 dark:text-white scale-110' : 'text-gray-400 font-medium scale-95 opacity-50'}`}
-                            >
-                                {y}
-                            </div>
-                        ))}
-                    </div>
+                {/* Footer Info */}
+                <div className="px-6 pb-6 pt-2">
+                    <p className="text-[11px] text-gray-400 text-center font-semibold bg-gray-50 dark:bg-white/2 py-2 rounded-xl">
+                        Toca un mes para cambiar la vista automáticamente
+                    </p>
                 </div>
             </div>
         </div>

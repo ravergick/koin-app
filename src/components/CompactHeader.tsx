@@ -1,8 +1,8 @@
 import React, { useState } from "react";
-import { ChevronLeft, ChevronRight, Eye, EyeOff } from "lucide-react";
+import { ChevronLeft, ChevronRight, Eye, EyeOff, Settings } from "lucide-react";
 import { MonthYearPicker } from "./MonthYearPicker";
 
-export const CompactHeader = ({ currentDate, setDate, privacyMode, setPrivacyMode }: any) => {
+export const CompactHeader = ({ currentDate, setDate, privacyMode, setPrivacyMode, onOpenOptions }: any) => {
     const [showPicker, setShowPicker] = useState(false);
     const label = new Intl.DateTimeFormat('es-ES', { month: 'long', year: 'numeric' }).format(currentDate);
 
@@ -32,12 +32,21 @@ export const CompactHeader = ({ currentDate, setDate, privacyMode, setPrivacyMod
                     </button>
                 </div>
 
-                <button
-                    onClick={() => setPrivacyMode(!privacyMode)}
-                    className={`p-2 rounded-full transition-all active:scale-90 ${privacyMode ? 'bg-[#007AFF] text-white shadow-lg shadow-blue-500/20' : 'bg-gray-200/40 dark:bg-white/5 text-gray-500'}`}
-                >
-                    {privacyMode ? <EyeOff size={16} /> : <Eye size={16} />}
-                </button>
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={() => setPrivacyMode(!privacyMode)}
+                        className={`p-2 rounded-full transition-all active:scale-90 ${privacyMode ? 'bg-[#007AFF] text-white shadow-lg shadow-blue-500/20' : 'bg-gray-200/40 dark:bg-white/5 text-gray-500'}`}
+                    >
+                        {privacyMode ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+
+                    <button
+                        onClick={onOpenOptions}
+                        className="p-2 rounded-full bg-gray-200/40 dark:bg-white/5 text-gray-500 active:scale-90 transition-all border border-gray-300/10"
+                    >
+                        <Settings size={16} />
+                    </button>
+                </div>
             </header>
 
             {showPicker && (

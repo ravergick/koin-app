@@ -18,6 +18,7 @@ import Onboarding from './Onboarding'; // Assuming Onboarding was moved to compo
 // OR better yet, since I am creating new files, I will fix the import path.
 
 import { auth, db, loginWithGoogle, logout, onAuthStateChanged, User } from '../services/firebase';
+import { getLocalISOString } from '../utils/dateUtils';
 import { doc, setDoc, onSnapshot, collection, query, orderBy, deleteDoc, writeBatch, updateDoc } from 'firebase/firestore';
 
 // --- COMPONENTES DE APOYO ---
@@ -214,7 +215,7 @@ export function TarjetasCredito({ privacyMode }: { privacyMode: boolean }) {
                 const txId = Date.now().toString();
                 batch.set(doc(db, "users", user.uid, "transactions", txId), {
                     id: Number(txId), amount: c.initialDebt, category: c.id,
-                    date: new Date().toISOString(), desc: 'Saldo Inicial'
+                    date: getLocalISOString(), desc: 'Saldo Inicial'
                 });
             }
         });
@@ -243,7 +244,7 @@ export function TarjetasCredito({ privacyMode }: { privacyMode: boolean }) {
         const txId = Date.now().toString();
         await setDoc(doc(db, "users", user.uid, "transactions", txId), {
             id: Number(txId), amount: amt, category: selectedCatId,
-            date: new Date().toISOString(), desc: inputDesc || (isRepayment ? 'Abono recibido' : 'Nueva transacción')
+            date: getLocalISOString(), desc: inputDesc || (isRepayment ? 'Abono recibido' : 'Nueva transacción')
         });
         setIsSaving(false);
         closeModal();
@@ -277,7 +278,7 @@ export function TarjetasCredito({ privacyMode }: { privacyMode: boolean }) {
             const txId = (Date.now() + 1).toString();
             batch.set(doc(db, "users", user.uid, "transactions", txId), {
                 id: Number(txId), amount: amount, category: id,
-                date: new Date().toISOString(), desc: 'Saldo Inicial'
+                date: getLocalISOString(), desc: 'Saldo Inicial'
             });
         }
         await batch.commit();

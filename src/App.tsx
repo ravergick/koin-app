@@ -21,7 +21,8 @@ import {
     Landmark,
     ShieldCheck,
     Trash2,
-    Target
+    Target,
+    Settings
 } from "lucide-react";
 
 // Types
@@ -40,6 +41,7 @@ import { TransactionTypeSelector } from "./components/TransactionTypeSelector";
 import { Dashboard } from "./components/dashboard/Dashboard";
 import { IncomeDetailView } from "./components/dashboard/IncomeDetailView";
 import { ExpenseDetailView } from "./components/dashboard/ExpenseDetailView";
+import { OptionsView } from "./components/OptionsView";
 
 // Services
 import {
@@ -257,7 +259,13 @@ export default function App() {
 
                         {/* HEADER */}
                         <div className="mb-4">
-                            <CompactHeader currentDate={currentMonth} setDate={setCurrentMonth} privacyMode={privacyMode} setPrivacyMode={setPrivacyMode} />
+                            <CompactHeader
+                                currentDate={currentMonth}
+                                setDate={setCurrentMonth}
+                                privacyMode={privacyMode}
+                                setPrivacyMode={setPrivacyMode}
+                                onOpenOptions={() => setVistaActual('options')}
+                            />
                         </div>
 
                         {/* DASHBOARD SCROLLABLE AREA */}
@@ -320,13 +328,13 @@ export default function App() {
                             <p className="text-gray-400 font-bold text-[13px]">Distribución inteligente del dinero</p>
                         </header>
 
-                        <DonutChart data={distributionData} />
+                        <DonutChart data={chartData.map((d: any) => ({ label: d.name, value: d.value, color: d.color }))} />
 
                         <div className="grid grid-cols-3 gap-2 mb-6 px-1">
-                            {distributionData.map((d, i) => (
+                            {chartData.map((d: any, i: number) => (
                                 <div key={i} className="bg-white dark:bg-[#1C1C1E] p-2 rounded-[18px] flex flex-col items-center border border-gray-100 dark:border-white/5">
                                     <div className="w-1.5 h-1.5 rounded-full mb-1" style={{ backgroundColor: d.color }}></div>
-                                    <span className="text-[9px] font-bold text-gray-400 mb-0.5 tracking-tight text-center">{d.label}</span>
+                                    <span className="text-[9px] font-bold text-gray-400 mb-0.5 tracking-tight text-center">{d.name}</span>
                                     <span className="text-[13px] font-black text-gray-900 dark:text-white">${d.value.toLocaleString()}</span>
                                 </div>
                             ))}
@@ -398,7 +406,7 @@ export default function App() {
                                     </div>
                                 ))
                             ) : (
-                                statsCategorias.filter(c => drillDownView === 'gastos' ? c.grupo === 'gasto' : c.grupo === drillDownView).map(cat => (
+                                statsCategorias.filter(c => drillDownView === 'gastos' ? (c.tipo === 'necesidad' || c.tipo === 'deseo') : c.grupo === drillDownView).map(cat => (
                                     <div key={cat.id} className="bg-white dark:bg-[#1C1C1E] p-4 rounded-[24px] flex items-center justify-between border border-gray-100 dark:border-white/5 shadow-sm">
                                         <div className="flex items-center gap-3">
                                             <div className="w-10 h-10 rounded-2xl flex items-center justify-center" style={{ backgroundColor: `${cat.color}15`, color: cat.color }}><cat.Icon size={18} /></div>
@@ -485,6 +493,9 @@ export default function App() {
 
                 {/* AI Advisor */}
                 {vistaActual === "ai-advisor" && <div className="h-full flex-1"><AiAdvisor transactions={transacciones} categories={categorias} defaultMode={"chat"} /></div>}
+
+                {/* Options View */}
+                {vistaActual === "options" && <OptionsView transactions={transacciones} onClose={() => setVistaActual('overview')} />}
 
             </main>
 
